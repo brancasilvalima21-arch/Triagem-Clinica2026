@@ -132,6 +132,16 @@ function renderAlgorithm(doc, algo, startY) {
   return y;
 }
 
+function outcomeToneKey(tone) {
+  switch (tone) {
+    case 'red': return 'emergente';
+    case 'orange': return 'muito_urgente';
+    case 'yellow': return 'urgente';
+    case 'green': return 'pouco_urgente';
+    default: return 'nao_urgente';
+  }
+}
+
 function renderFlow(doc, flow, startY, contentW) {
   let y = startY;
   const nodes = Object.entries(flow);
@@ -158,10 +168,7 @@ function renderFlow(doc, flow, startY, contentW) {
       });
       y += 2;
     } else if (node.outcome) {
-      const tone = COLORS[node.outcome.tone === 'red' ? 'emergente'
-        : node.outcome.tone === 'orange' ? 'muito_urgente'
-        : node.outcome.tone === 'yellow' ? 'urgente'
-        : node.outcome.tone === 'green' ? 'pouco_urgente' : 'nao_urgente'];
+      const tone = COLORS[outcomeToneKey(node.outcome.tone)];
       doc.setFillColor(...tone);
       doc.rect(PAGE.margin, y - 3.5, 3, 5, 'F');
       doc.setFont('helvetica', 'bold');

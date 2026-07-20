@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Download, FileJson, FileText, ChevronDown } from 'lucide-react';
 import { Button } from './ui/button';
+import { useToast } from '../hooks/use-toast';
 
 /**
  * Botão de export com dropdown JSON/PDF.
@@ -9,6 +10,7 @@ import { Button } from './ui/button';
 export default function ExportButton({ onJSON, onPDF, label = 'Exportar', variant = 'outline' }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
@@ -16,7 +18,17 @@ export default function ExportButton({ onJSON, onPDF, label = 'Exportar', varian
     return () => document.removeEventListener('mousedown', onDoc);
   }, []);
 
-  const handle = (fn) => { setOpen(false); try { fn(); } catch (e) { /* já tratado a montante */ } };
+  const handle = (fn, format) => {
+    setOpen(false);
+    try {
+      fn();
+    } catch (err) {
+      toast({
+        title: `Erro ao exportar ${format}`,
+        description: 'Não foi possível gerar o ficheiro. Tente novamente.',
+      });
+    }
+  };
 
   return (
     <div ref={ref} className="relative inline-block">
@@ -27,7 +39,7 @@ export default function ExportButton({ onJSON, onPDF, label = 'Exportar', varian
       {open && (
         <div className="absolute right-0 mt-1 w-52 bg-white border border-slate-200 rounded-lg shadow-lg z-20 overflow-hidden">
           <button
-            onClick={() => handle(onJSON)}
+            onClick={() => handle(onJSON, 'JSON')}
             className="w-full flex items-start gap-3 px-3 py-2.5 hover:bg-slate-50 text-left transition-colors"
           >
             <FileJson className="h-4 w-4 text-blue-600 mt-0.5" />
@@ -38,7 +50,7 @@ export default function ExportButton({ onJSON, onPDF, label = 'Exportar', varian
           </button>
           <div className="h-px bg-slate-100" />
           <button
-            onClick={() => handle(onPDF)}
+            onClick={() => handle(onPDF, 'PDF')}
             className="w-full flex items-start gap-3 px-3 py-2.5 hover:bg-slate-50 text-left transition-colors"
           >
             <FileText className="h-4 w-4 text-red-500 mt-0.5" />

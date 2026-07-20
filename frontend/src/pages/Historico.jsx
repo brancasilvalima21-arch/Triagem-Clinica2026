@@ -3,25 +3,37 @@ import { Link } from 'react-router-dom';
 import { History, Trash2, ChevronRight, Inbox, Loader2 } from 'lucide-react';
 import { getHistorico, deleteTriagem } from '../mock/api';
 import { Button } from '../components/ui/button';
+import { useToast } from '../hooks/use-toast';
 
 export default function Historico() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       setItems(await getHistorico());
-    } catch (e) {
-      // Silently handle: user sees empty state; error already logged by axios interceptor if any
+    } catch (err) {
+      toast({
+        title: 'Erro ao carregar histórico',
+        description: err?.response?.data?.detail || 'Verifique a ligação e tente novamente.',
+      });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => { load(); }, [load]);
 
-  const del = async (id) => { await deleteTriagem(id); load(); };
+  const del = async (id) => {
+    try {
+      await deleteTriagem(id);
+      load();
+    } catch (err) {
+      toast({ title: 'Erro ao apagar', description: 'Não foi possível apagar a triagem.' });
+    }
+  };
   const fmt = (d) => new Date(d).toLocaleString('pt-PT');
 
   return (
