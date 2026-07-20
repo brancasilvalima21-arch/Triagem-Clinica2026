@@ -6,6 +6,7 @@ import NovaTriagem from './pages/NovaTriagem';
 import Algoritmos from './pages/Algoritmos';
 import AlgoritmoDetail from './pages/AlgoritmoDetail';
 import Historico from './pages/Historico';
+import Tradutor from './pages/Tradutor';
 import { Toaster } from './components/ui/toaster';
 
 function App() {
@@ -18,6 +19,7 @@ function App() {
             <Route path="nova-triagem" element={<NovaTriagem />} />
             <Route path="algoritmos" element={<Algoritmos />} />
             <Route path="algoritmos/:id" element={<AlgoritmoDetail />} />
+            <Route path="tradutor" element={<Tradutor />} />
             <Route path="historico" element={<Historico />} />
           </Route>
         </Routes>

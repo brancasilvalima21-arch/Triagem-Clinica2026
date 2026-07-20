@@ -36,6 +36,17 @@ class AnalyzeRequest(BaseModel):
     sex: Optional[str] = ""
 
 
+class TranslateRequest(BaseModel):
+    clinical_question: str
+    tone: Optional[str] = "leigo"  # "leigo" | "crianca" | "idoso"
+
+
+class TranslateResponse(BaseModel):
+    plain: str
+    alternatives: List[str] = []
+    explained_terms: List[Dict[str, str]] = []
+
+
 class AlgorithmSuggestion(BaseModel):
     id: str
     name: str
@@ -173,6 +184,56 @@ Não inclues texto fora do JSON."""
     }
 
 
+async def llm_translate(clinical_question: str, tone: str = "leigo") -> Dict[str, Any]:
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+
+    tone_desc = {
+        "leigo": "para uma pessoa adulta sem formação médica",
+        "crianca": "para uma criança ou adolescente (10-15 anos), com frases muito simples",
+        "idoso": "para uma pessoa idosa, com frases curtas, claras e pausadas",
+    }.get(tone, "para uma pessoa adulta sem formação médica")
+
+    system = f"""És um assistente que traduz perguntas clínicas técnicas em português europeu (PT-PT) para linguagem corrente e acessível, {tone_desc}.
+
+Regras:
+1) Preserva TODO o significado clínico da pergunta original — não simplifiques ao ponto de perder informação (ex.: se pergunta por sintomas específicos, deves manter todos).
+2) Substitui termos técnicos por descrições que qualquer pessoa entenda (ex.: "letargia" → "muito sonolento, sem energia e difícil de acordar"; "dispneia" → "falta de ar"; "hematémese" → "vomitou sangue").
+3) Se a pergunta lista várias substâncias/sintomas com "OU", mantém todos os exemplos.
+4) Podes dividir uma pergunta longa em 2 frases curtas se ficar mais claro.
+5) Devolve também os termos técnicos que traduziste, com a sua explicação simples.
+6) Oferece 1-2 formulações alternativas equivalentes.
+
+Responde ESTRITAMENTE em JSON válido:
+{{
+  "plain": "pergunta reformulada em linguagem corrente",
+  "alternatives": ["outra forma de perguntar 1", "outra forma de perguntar 2"],
+  "explained_terms": [
+    {{"term": "letargia", "explanation": "estado de muita sonolência e falta de reação"}}
+  ]
+}}
+Não inclues texto fora do JSON."""
+
+    chat = LlmChat(
+        api_key=EMERGENT_LLM_KEY,
+        session_id=f"translate-{uuid.uuid4()}",
+        system_message=system,
+    ).with_model("openai", "gpt-4.1-mini")
+
+    resp_text = await chat.send_message(UserMessage(text=clinical_question))
+    raw = resp_text.strip()
+    if raw.startswith("```"):
+        raw = raw.strip("`")
+        if raw.startswith("json"):
+            raw = raw[4:]
+        raw = raw.strip()
+    data = json.loads(raw)
+    return {
+        "plain": data.get("plain", ""),
+        "alternatives": data.get("alternatives", [])[:3],
+        "explained_terms": data.get("explained_terms", [])[:8],
+    }
+
+
 # ---------- Routes ----------
 @api_router.get("/")
 async def root():
@@ -190,6 +251,18 @@ async def analyze(req: AnalyzeRequest):
         logger.exception("LLM analyze failed, falling back to keyword matching: %s", e)
         result = keyword_fallback(req.description)
         return AnalyzeResponse(**result)
+
+
+@api_router.post("/translate", response_model=TranslateResponse)
+async def translate_question(req: TranslateRequest):
+    if not req.clinical_question or not req.clinical_question.strip():
+        raise HTTPException(status_code=400, detail="Pergunta obrigatória.")
+    try:
+        result = await llm_translate(req.clinical_question, req.tone or "leigo")
+        return TranslateResponse(**result)
+    except Exception as e:
+        logger.exception("Translate failed: %s", e)
+        raise HTTPException(status_code=502, detail="Não foi possível traduzir. Tente novamente.")
 
 
 @api_router.post("/history", response_model=Triagem)

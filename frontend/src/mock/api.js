@@ -25,4 +25,9 @@ export async function deleteTriagem(id) {
   await axios.delete(`${API}/history/${id}`);
 }
 
+export async function translateQuestion({ clinical_question, tone = 'leigo' }) {
+  const { data } = await axios.post(`${API}/translate`, { clinical_question, tone });
+  return data;
+}
+
 export { TRIAGE_LEVELS } from './algorithms';

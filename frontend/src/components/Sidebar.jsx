@@ -1,10 +1,11 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Activity, ClipboardList, BarChart3, History } from 'lucide-react';
+import { Activity, ClipboardList, BarChart3, History, Languages } from 'lucide-react';
 
 const items = [
   { to: '/nova-triagem', label: 'Nova Triagem', icon: ClipboardList },
   { to: '/algoritmos', label: 'Algoritmos', icon: BarChart3 },
+  { to: '/tradutor', label: 'Tradutor', icon: Languages },
   { to: '/historico', label: 'Histórico', icon: History },
 ];
 
