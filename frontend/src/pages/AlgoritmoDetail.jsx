@@ -76,8 +76,8 @@ export default function AlgoritmoDetail() {
           <div className="bg-white border border-slate-200 rounded-xl p-5">
             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Palavras-chave</div>
             <div className="flex flex-wrap gap-1.5">
-              {algo.keywords.map((k, i) => (
-                <span key={i} className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full border border-slate-200">{k}</span>
+              {algo.keywords.map((k) => (
+                <span key={k} className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full border border-slate-200">{k}</span>
               ))}
             </div>
           </div>
@@ -93,8 +93,8 @@ export default function AlgoritmoDetail() {
                   <p className="text-base text-slate-900 leading-relaxed">{currentNode.question}</p>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {currentNode.options.map((o, i) => (
-                    <button key={i} onClick={() => choose(o)}
+                  {currentNode.options.map((o) => (
+                    <button key={o.label} onClick={() => choose(o)}
                       className="border border-slate-200 hover:border-blue-500 hover:bg-blue-50/40 rounded-lg p-4 text-left transition-colors">
                       <div className="font-medium text-slate-900">{o.label}</div>
                     </button>
@@ -128,7 +128,7 @@ export default function AlgoritmoDetail() {
           {path.length === 0 && <p className="text-sm text-slate-500">Ainda não respondeu.</p>}
           <ol className="space-y-3">
             {path.map((step, i) => (
-              <li key={i} className="text-sm">
+              <li key={`${i}-${step.question}`} className="text-sm">
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
                   <div>

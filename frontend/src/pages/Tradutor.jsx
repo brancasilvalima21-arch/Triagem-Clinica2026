@@ -12,6 +12,9 @@ const TONES = [
   { key: 'idoso', label: 'Pessoa Idosa', desc: 'Curto, claro, pausado' },
 ];
 
+// UI constants
+const COPY_FEEDBACK_MS = 1500;
+
 const EXAMPLES = [
   'Nas últimas 72h ingeriu ou esteve exposto a alguma substância tóxica como pesticidas, raticidas, lixívia, soda cáustica OU cogumelos selvagens?',
   'Apresenta letargia, sinais meníngeos ou alteração do estado de consciência?',
@@ -46,7 +49,14 @@ export default function Tradutor() {
 
   const clear = () => { setQuestion(''); setResult(null); };
   const copyText = async (text) => {
-    try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch {}
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), COPY_FEEDBACK_MS);
+    } catch (err) {
+      // Clipboard API não disponível (ex.: browser antigo ou contexto não seguro) — falhar silenciosamente
+      toast({ title: 'Não foi possível copiar', description: 'Copie manualmente o texto.' });
+    }
   };
 
   return (
@@ -107,8 +117,8 @@ export default function Tradutor() {
               <Lightbulb className="h-3.5 w-3.5" /> Exemplos
             </div>
             <div className="flex flex-col gap-2">
-              {EXAMPLES.map((ex, i) => (
-                <button key={i} onClick={() => setQuestion(ex)}
+              {EXAMPLES.map((ex) => (
+                <button key={ex} onClick={() => setQuestion(ex)}
                   className="text-left text-sm text-slate-700 border border-slate-200 hover:border-blue-300 hover:bg-blue-50/40 rounded-md px-3 py-2 transition-colors">
                   {ex}
                 </button>
@@ -152,7 +162,7 @@ export default function Tradutor() {
                   <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Formulações alternativas</div>
                   <div className="space-y-2">
                     {result.alternatives.map((a, i) => (
-                      <div key={i} className="text-sm text-slate-700 border border-slate-200 rounded-md p-3 flex items-start gap-2">
+                      <div key={`alt-${i}-${a.slice(0, 20)}`} className="text-sm text-slate-700 border border-slate-200 rounded-md p-3 flex items-start gap-2">
                         <span className="text-slate-400 shrink-0">{i + 1}.</span>
                         <span className="flex-1">{a}</span>
                         <button onClick={() => copyText(a)} className="text-slate-400 hover:text-blue-600"><Copy className="h-3.5 w-3.5" /></button>
@@ -166,8 +176,8 @@ export default function Tradutor() {
                 <div>
                   <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Termos explicados</div>
                   <div className="space-y-1.5">
-                    {result.explained_terms.map((t, i) => (
-                      <div key={i} className="text-sm border-l-2 border-blue-200 pl-3 py-1">
+                    {result.explained_terms.map((t) => (
+                      <div key={t.term} className="text-sm border-l-2 border-blue-200 pl-3 py-1">
                         <span className="font-medium text-slate-900">{t.term}</span>
                         <span className="text-slate-600"> — {t.explanation}</span>
                       </div>

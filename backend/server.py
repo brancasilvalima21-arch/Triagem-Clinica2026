@@ -82,36 +82,51 @@ class Triagem(BaseModel):
 
 
 # ---------- Helpers ----------
+def _score_algorithm(algo: dict, text: str) -> Dict[str, Any]:
+    """Pontua um único algoritmo contra o texto. Retorna {score, matched}."""
+    score = 0
+    matched = []
+    for kw in algo["kw"].split(","):
+        kw = kw.strip().lower()
+        if kw and kw in text:
+            score += 2
+            matched.append(kw)
+    for w in algo["name"].lower().split():
+        if len(w) > 3 and w in text:
+            score += 1
+    return {"score": score, "matched": matched}
+
+
+def _build_suggestion(algo: dict, matched: List[str]) -> Dict[str, Any]:
+    return {"id": algo["id"], "name": algo["name"], "category": algo["category"], "matched": matched}
+
+
+def _empty_fallback() -> Dict[str, Any]:
+    insp = BY_ID["inespecifico"]
+    return {
+        "clinicalTerms": [],
+        "summary": "Não foi possível identificar sintomas específicos. Sugere-se o algoritmo de Problemas Inespecíficos.",
+        "suggested": [_build_suggestion(insp, [])],
+        "primary": _build_suggestion(insp, []),
+        "source": "fallback",
+    }
+
+
 def keyword_fallback(description: str) -> Dict[str, Any]:
     text = description.lower()
     scored = []
     for a in ALGORITHM_INDEX:
-        score = 0
-        matched = []
-        for kw in a["kw"].split(","):
-            kw = kw.strip().lower()
-            if kw and kw in text:
-                score += 2
-                matched.append(kw)
-        for w in a["name"].lower().split():
-            if len(w) > 3 and w in text:
-                score += 1
-        if score > 0:
-            scored.append({"algo": a, "score": score, "matched": matched})
-    scored.sort(key=lambda s: s["score"], reverse=True)
+        s = _score_algorithm(a, text)
+        if s["score"] > 0:
+            scored.append({"algo": a, **s})
     if not scored:
-        insp = BY_ID["inespecifico"]
-        return {
-            "clinicalTerms": [],
-            "summary": "Não foi possível identificar sintomas específicos. Sugere-se o algoritmo de Problemas Inespecíficos.",
-            "suggested": [{"id": insp["id"], "name": insp["name"], "category": insp["category"], "matched": []}],
-            "primary": {"id": insp["id"], "name": insp["name"], "category": insp["category"], "matched": []},
-            "source": "fallback",
-        }
+        return _empty_fallback()
+    scored.sort(key=lambda x: x["score"], reverse=True)
     top = scored[:3]
-    suggested = [{"id": s["algo"]["id"], "name": s["algo"]["name"], "category": s["algo"]["category"], "matched": s["matched"]} for s in top]
+    suggested = [_build_suggestion(s["algo"], s["matched"]) for s in top]
+    terms = list({m for s in top for m in s["matched"]})[:8]
     return {
-        "clinicalTerms": list({m for s in top for m in s["matched"]})[:8],
+        "clinicalTerms": terms,
         "summary": f"Sintomas compatíveis com {top[0]['algo']['name']}. Sugere-se percorrer o algoritmo correspondente.",
         "suggested": suggested,
         "primary": suggested[0],
@@ -119,12 +134,23 @@ def keyword_fallback(description: str) -> Dict[str, Any]:
     }
 
 
-async def llm_analyze(description: str, age: str, sex: str) -> Dict[str, Any]:
-    from emergentintegrations.llm.chat import LlmChat, UserMessage
+def _parse_json_response(raw: str) -> Dict[str, Any]:
+    """Extrai JSON de uma resposta que pode vir embrulhada em markdown."""
+    txt = raw.strip()
+    if txt.startswith("```"):
+        txt = txt.strip("`")
+        if txt.startswith("json"):
+            txt = txt[4:]
+        txt = txt.strip()
+    return json.loads(txt)
 
-    algos_list = "\n".join([f"- {a['id']} | {a['name']} ({a['category']}) — palavras-chave: {a['kw']}" for a in ALGORITHM_INDEX])
 
-    system = f"""És um assistente clínico de triagem em português europeu (PT-PT). Recebes a descrição de sintomas de um utente em linguagem corrente e deves:
+def _build_analyze_prompt() -> str:
+    algos_list = "\n".join([
+        f"- {a['id']} | {a['name']} ({a['category']}) — palavras-chave: {a['kw']}"
+        for a in ALGORITHM_INDEX
+    ])
+    return f"""És um assistente clínico de triagem em português europeu (PT-PT). Recebes a descrição de sintomas de um utente em linguagem corrente e deves:
 1) Extrair até 8 termos clínicos técnicos correspondentes (ex.: "dor de cabeça"->"cefaleia", "aperto no peito"->"precordialgia").
 2) Escolher o algoritmo de triagem MAIS ADEQUADO da lista abaixo (obrigatório escolher UM da lista).
 3) Sugerir até 2 alternativas relevantes da mesma lista.
@@ -144,36 +170,17 @@ Responde ESTRITAMENTE em JSON válido no formato:
 }}
 Não inclues texto fora do JSON."""
 
-    chat = LlmChat(
-        api_key=EMERGENT_LLM_KEY,
-        session_id=f"triagem-{uuid.uuid4()}",
-        system_message=system,
-    ).with_model("openai", "gpt-4.1-mini")
 
-    user_text = f"Idade: {age or 'não informada'}\nSexo: {sex or 'não informado'}\nDescrição: {description}"
-    msg = UserMessage(text=user_text)
-    resp_text = await chat.send_message(msg)
-
-    # Parse JSON (LLM may wrap in markdown)
-    raw = resp_text.strip()
-    if raw.startswith("```"):
-        raw = raw.strip("`")
-        if raw.startswith("json"):
-            raw = raw[4:]
-        raw = raw.strip()
-    data = json.loads(raw)
-
+def _build_analyze_result(data: dict) -> Dict[str, Any]:
     algo_id = data.get("algorithm_id")
     if algo_id not in BY_ID:
         raise ValueError(f"LLM returned invalid algorithm_id: {algo_id}")
-
     primary = BY_ID[algo_id]
     suggested = [{"id": primary["id"], "name": primary["name"], "category": primary["category"], "matched": []}]
     for alt in data.get("alternatives", [])[:2]:
         if alt in BY_ID and alt != algo_id:
             a = BY_ID[alt]
             suggested.append({"id": a["id"], "name": a["name"], "category": a["category"], "matched": []})
-
     return {
         "clinicalTerms": data.get("clinical_terms", [])[:8],
         "summary": data.get("summary", ""),
@@ -182,6 +189,19 @@ Não inclues texto fora do JSON."""
         "urgencyHint": data.get("urgency_hint"),
         "source": "llm",
     }
+
+
+async def llm_analyze(description: str, age: str, sex: str) -> Dict[str, Any]:
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    chat = LlmChat(
+        api_key=EMERGENT_LLM_KEY,
+        session_id=f"triagem-{uuid.uuid4()}",
+        system_message=_build_analyze_prompt(),
+    ).with_model("openai", "gpt-4.1-mini")
+    user_text = f"Idade: {age or 'não informada'}\nSexo: {sex or 'não informado'}\nDescrição: {description}"
+    resp_text = await chat.send_message(UserMessage(text=user_text))
+    data = _parse_json_response(resp_text)
+    return _build_analyze_result(data)
 
 
 async def llm_translate(clinical_question: str, tone: str = "leigo") -> Dict[str, Any]:
@@ -220,13 +240,7 @@ Não inclues texto fora do JSON."""
     ).with_model("openai", "gpt-4.1-mini")
 
     resp_text = await chat.send_message(UserMessage(text=clinical_question))
-    raw = resp_text.strip()
-    if raw.startswith("```"):
-        raw = raw.strip("`")
-        if raw.startswith("json"):
-            raw = raw[4:]
-        raw = raw.strip()
-    data = json.loads(raw)
+    data = _parse_json_response(resp_text)
     return {
         "plain": data.get("plain", ""),
         "alternatives": data.get("alternatives", [])[:3],

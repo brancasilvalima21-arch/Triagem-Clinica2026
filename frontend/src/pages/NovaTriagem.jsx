@@ -40,10 +40,12 @@ export default function NovaTriagem() {
               source: r.source,
             },
           });
-        } catch (e) { console.warn('Não foi possível guardar no histórico', e); }
+        } catch (e) {
+          // Falha ao guardar histórico não deve bloquear a análise — apenas notificamos silenciosamente
+          toast({ title: 'Aviso', description: 'Análise realizada mas não foi possível guardar no histórico.' });
+        }
       }
     } catch (e) {
-      console.error(e);
       toast({ title: 'Erro ao analisar', description: e?.response?.data?.detail || 'Tente novamente.' });
     } finally {
       setLoading(false);
@@ -102,8 +104,8 @@ export default function NovaTriagem() {
           <div className="mt-8">
             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Exemplos rápidos</div>
             <div className="flex flex-col gap-2">
-              {QUICK_EXAMPLES.map((ex, i) => (
-                <button key={i} onClick={() => setDesc(ex)}
+              {QUICK_EXAMPLES.map((ex) => (
+                <button key={ex} onClick={() => setDesc(ex)}
                   className="text-left text-sm text-slate-700 border border-slate-200 hover:border-blue-300 hover:bg-blue-50/40 rounded-md px-3 py-2 transition-colors">
                   {ex}
                 </button>
@@ -138,8 +140,8 @@ export default function NovaTriagem() {
                 <div>
                   <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Termos clínicos identificados</div>
                   <div className="flex flex-wrap gap-1.5">
-                    {result.clinicalTerms.map((t, i) => (
-                      <span key={i} className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full border border-slate-200">{t}</span>
+                    {result.clinicalTerms.map((t) => (
+                      <span key={t} className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full border border-slate-200">{t}</span>
                     ))}
                   </div>
                 </div>

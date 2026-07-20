@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { History, Trash2, ChevronRight, Inbox, Loader2 } from 'lucide-react';
 import { getHistorico, deleteTriagem } from '../mock/api';
@@ -8,13 +8,18 @@ export default function Historico() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
-    try { setItems(await getHistorico()); } catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  };
+    try {
+      setItems(await getHistorico());
+    } catch (e) {
+      // Silently handle: user sees empty state; error already logged by axios interceptor if any
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   const del = async (id) => { await deleteTriagem(id); load(); };
   const fmt = (d) => new Date(d).toLocaleString('pt-PT');
