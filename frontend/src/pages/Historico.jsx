@@ -1,14 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { History, Trash2, ChevronRight, Inbox } from 'lucide-react';
-import { getHistoricoMock, deleteTriagemMock } from '../mock/mock';
+import { History, Trash2, ChevronRight, Inbox, Loader2 } from 'lucide-react';
+import { getHistorico, deleteTriagem } from '../mock/api';
 import { Button } from '../components/ui/button';
 
 export default function Historico() {
   const [items, setItems] = useState([]);
-  useEffect(() => { setItems(getHistoricoMock()); }, []);
+  const [loading, setLoading] = useState(true);
 
-  const del = (id) => { deleteTriagemMock(id); setItems(getHistoricoMock()); };
+  const load = async () => {
+    setLoading(true);
+    try { setItems(await getHistorico()); } catch (e) { console.error(e); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const del = async (id) => { await deleteTriagem(id); load(); };
   const fmt = (d) => new Date(d).toLocaleString('pt-PT');
 
   return (
@@ -16,10 +24,17 @@ export default function Historico() {
       <div className="mb-6">
         <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Registo</div>
         <h1 className="text-3xl font-semibold text-slate-900 mt-1 flex items-center gap-2"><History className="h-7 w-7 text-blue-600" /> Histórico de Triagens</h1>
-        <p className="text-slate-600 mt-2">{items.length} triagem(ns) registada(s).</p>
+        <p className="text-slate-600 mt-2">{loading ? 'A carregar...' : `${items.length} triagem(ns) registada(s).`}</p>
       </div>
 
-      {items.length === 0 && (
+      {loading && (
+        <div className="bg-white border border-slate-200 rounded-xl p-12 text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-2" />
+          <p className="text-slate-500 text-sm">A carregar histórico...</p>
+        </div>
+      )}
+
+      {!loading && items.length === 0 && (
         <div className="bg-white border border-slate-200 rounded-xl p-12 text-center">
           <Inbox className="h-10 w-10 text-slate-300 mx-auto mb-3" />
           <p className="text-slate-600">Ainda não realizou nenhuma triagem.</p>

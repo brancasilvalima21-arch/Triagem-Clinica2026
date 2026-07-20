@@ -5,7 +5,7 @@ import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
 import { Button } from '../components/ui/button';
 import { Label } from '../components/ui/label';
-import { analyzeSymptomsMock, saveTriagemMock } from '../mock/mock';
+import { analyzeSymptoms, saveTriagem } from '../mock/api';
 import { QUICK_EXAMPLES } from '../mock/algorithms';
 import { useToast } from '../hooks/use-toast';
 
@@ -24,11 +24,30 @@ export default function NovaTriagem() {
       return;
     }
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 700));
-    const r = analyzeSymptomsMock({ description: desc, age, sex });
-    setResult(r);
-    if (r) saveTriagemMock({ input: { age, sex, description: desc }, result: r });
-    setLoading(false);
+    try {
+      const r = await analyzeSymptoms({ description: desc, age, sex });
+      setResult(r);
+      if (r) {
+        try {
+          await saveTriagem({
+            input: { age, sex, description: desc },
+            result: {
+              clinicalTerms: r.clinicalTerms,
+              summary: r.summary,
+              suggested: r.suggested,
+              primary: r.primary ? { id: r.primary.id, name: r.primary.name, category: r.primary.category } : null,
+              urgencyHint: r.urgencyHint,
+              source: r.source,
+            },
+          });
+        } catch (e) { console.warn('Não foi possível guardar no histórico', e); }
+      }
+    } catch (e) {
+      console.error(e);
+      toast({ title: 'Erro ao analisar', description: e?.response?.data?.detail || 'Tente novamente.' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const clear = () => { setAge(''); setSex(''); setDesc(''); setResult(null); };
