@@ -4,6 +4,8 @@ import { Search, ChevronRight } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Input } from '../components/ui/input';
 import { ALGORITHMS, ALGORITHM_CATEGORIES } from '../mock/algorithms';
+import ExportButton from '../components/ExportButton';
+import { exportAllJSON, exportAllPDF } from '../utils/exportAlgorithms';
 
 export default function Algoritmos() {
   const [q, setQ] = useState('');
@@ -20,10 +22,13 @@ export default function Algoritmos() {
 
   return (
     <div className="p-8 max-w-[1400px] mx-auto">
-      <div className="mb-6">
-        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Biblioteca</div>
-        <h1 className="text-3xl font-semibold text-slate-900 mt-1">Algoritmos de Triagem</h1>
-        <p className="text-slate-600 mt-2 max-w-2xl">{ALGORITHMS.length} algoritmos disponíveis. Selecione para percorrer o fluxo estruturado.</p>
+      <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Biblioteca</div>
+          <h1 className="text-3xl font-semibold text-slate-900 mt-1">Algoritmos de Triagem</h1>
+          <p className="text-slate-600 mt-2 max-w-2xl">{ALGORITHMS.length} algoritmos disponíveis. Selecione para percorrer o fluxo estruturado.</p>
+        </div>
+        <ExportButton onJSON={exportAllJSON} onPDF={exportAllPDF} label="Exportar todos" />
       </div>
 
       <div className="bg-white border border-slate-200 rounded-xl p-4 mb-5">

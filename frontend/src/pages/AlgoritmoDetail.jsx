@@ -4,6 +4,8 @@ import { ChevronLeft, RotateCcw, CheckCircle2, AlertCircle } from 'lucide-react'
 import * as Icons from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { ALGORITHMS, TRIAGE_LEVELS } from '../mock/algorithms';
+import ExportButton from '../components/ExportButton';
+import { exportOneJSON, exportOnePDF } from '../utils/exportAlgorithms';
 
 const toneStyles = {
   red: { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-800', dot: 'bg-red-500' },
@@ -57,6 +59,7 @@ export default function AlgoritmoDetail() {
           <h1 className="text-2xl font-semibold text-slate-900 mt-0.5">{algo.name}</h1>
         </div>
         <Button variant="outline" onClick={restart}><RotateCcw className="h-4 w-4 mr-2" /> Reiniciar</Button>
+        <ExportButton onJSON={() => exportOneJSON(algo)} onPDF={() => exportOnePDF(algo)} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
